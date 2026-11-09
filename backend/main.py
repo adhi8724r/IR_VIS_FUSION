@@ -21,7 +21,8 @@ yolo_model = None
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-fusion_model_path = "models/FusionModelG.model"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+fusion_model_path = os.path.join(BASE_DIR, "models", "FusionModelG.model")
 
 def load_model(model_path):
     model = Generator_DWT().to(device)
@@ -36,7 +37,8 @@ async def lifespan(app: FastAPI):
     fusion_model = load_model(fusion_model_path)
 
     print("yolo model is loading")
-    yolo_model = ultralytics.YOLO("yolo11n.pt")
+    yolo_model_path = os.path.join(BASE_DIR, "yolo11n.pt")
+    yolo_model = ultralytics.YOLO(yolo_model_path)
     
     yield
     print("shutting down")

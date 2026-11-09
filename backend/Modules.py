@@ -110,8 +110,12 @@ class DWT_2D(nn.Module):
         self.high = wavelet.rec_hi
         self.L = len(self.low)
         self.half = self.L // 2
+        self._filter_cache = {}
 
-    def _build_filters(self, H, W):
+    def _get_filters(self, H, W, device):
+        key = (H, W, str(device))
+        if key in self._filter_cache:
+            return self._filter_cache[key]
 
         L = max(H, W)
         out = math.floor(L / 2)
@@ -134,23 +138,23 @@ class DWT_2D(nn.Module):
             index += 2
         mat_high = mat_high[:, (self.half - 1):(-(self.half - 1)) or None]
 
-        # convert to torch
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        mat_low_h = torch.tensor(mat_low[:math.floor(H / 2), :H], dtype=torch.float32, device=device)
+        mat_low_w = torch.tensor(mat_low[:math.floor(W / 2), :W], dtype=torch.float32, device=device).t()
 
-        self.mat_low_h = torch.Tensor(mat_low[:math.floor(H / 2), :H]).to(device)
-        self.mat_low_w = torch.Tensor(mat_low[:math.floor(W / 2), :W]).t().to(device)
+        mat_high_h = torch.tensor(mat_high[:H - math.floor(H / 2), :H], dtype=torch.float32, device=device)
+        mat_high_w = torch.tensor(mat_high[:W - math.floor(W / 2), :W], dtype=torch.float32, device=device).t()
 
-        self.mat_high_h = torch.Tensor(mat_high[:H - math.floor(H / 2), :H]).to(device)
-        self.mat_high_w = torch.Tensor(mat_high[:W - math.floor(W / 2), :W]).t().to(device)
+        self._filter_cache[key] = (mat_low_h, mat_low_w, mat_high_h, mat_high_w)
+        return self._filter_cache[key]
 
     def forward(self, x):
         N, C, H, W = x.size()
-        self._build_filters(H, W)
+        mat_low_h, mat_low_w, mat_high_h, mat_high_w = self._get_filters(H, W, x.device)
 
         LL, LH, HL, HH = DWTFunction_2D.apply(
             x,
-            self.mat_low_h, self.mat_low_w,
-            self.mat_high_h, self.mat_high_w
+            mat_low_h, mat_low_w,
+            mat_high_h, mat_high_w
         )
         return LL, LH, HL, HH
 
