@@ -103,7 +103,7 @@ def main():
             (vis_sample, ir_sample),
             onnx_fp32_path,
             export_params=True,
-            opset_version=14,
+            opset_version=17,
             do_constant_folding=True,
             input_names=["vis", "ir"],
             output_names=["fused"],
@@ -111,23 +111,44 @@ def main():
                 "vis": {0: "batch_size", 2: "height", 3: "width"},
                 "ir": {0: "batch_size", 2: "height", 3: "width"},
                 "fused": {0: "batch_size", 2: "height", 3: "width"}
-            }
+            },
+            dynamo=False
         )
         print(f"    Exported ONNX FP32: {onnx_fp32_path} ({get_model_size_mb(onnx_fp32_path):.2f} MB)")
 
         try:
             from onnxruntime.quantization import quantize_dynamic, QuantType
+            import onnxruntime as ort
             print("\n[5] Quantizing ONNX model to INT8...")
             quantize_dynamic(
                 model_input=onnx_fp32_path,
                 model_output=onnx_quant_path,
                 weight_type=QuantType.QUInt8
             )
-            print(f"    Exported ONNX INT8: {onnx_quant_path} ({get_model_size_mb(onnx_quant_path):.2f} MB)")
-        except ImportError:
-            print("    (Notice: onnxruntime not installed. Install with 'pip install onnxruntime' to enable ONNX INT8 quantization)")
+            quant_onnx_size = get_model_size_mb(onnx_quant_path)
+            print(f"    Exported ONNX INT8: {onnx_quant_path} ({quant_onnx_size:.2f} MB)")
+            print(f"    Size Reduction: {((fp32_size - quant_onnx_size) / fp32_size) * 100:.1f}%")
+
+            print("\n[6] Benchmarking ONNX Runtime INT8 on CPU...")
+            session = ort.InferenceSession(onnx_quant_path, providers=['CPUExecutionProvider'])
+            ort_inputs = {
+                "vis": vis_sample.numpy(),
+                "ir": ir_sample.numpy()
+            }
+            # Warmup
+            for _ in range(5):
+                _ = session.run(None, ort_inputs)
+            start_ort = time.perf_counter()
+            runs = 30
+            for _ in range(runs):
+                ort_outs = session.run(None, ort_inputs)
+            ort_latency = (time.perf_counter() - start_ort) / runs * 1000
+            print(f"    ONNX Runtime INT8 Latency: {ort_latency:.2f} ms ({1000 / ort_latency:.1f} FPS)")
+            print(f"    Speedup vs Baseline PyTorch: {fp32_latency / ort_latency:.2f}x")
+        except Exception as e:
+            print(f"    ONNX quantization/benchmark notice: {e}")
     except Exception as e:
-        print(f"    ONNX export skipped/warning: {e}")
+        print(f"    ONNX export notice: {e}")
 
     print("\n" + "=" * 60)
     print("  Optimization & Quantization Complete!")
