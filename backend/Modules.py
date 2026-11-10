@@ -87,7 +87,7 @@ class SE_Block(nn.Module):
 class DWT(nn.Module):
     def __init__(self, in_channels):
         super(DWT, self).__init__()
-        self.dwt = DWT_2D(wavename='haar')
+        self.dwt = DWT_2D(in_channels=in_channels, wavename='haar')
         self.Conv = nn.Conv2d(in_channels, in_channels * 2, kernel_size=1, stride=1)
 
     def forward(self, x):
@@ -97,65 +97,29 @@ class DWT(nn.Module):
         return HF, LL
 
 class DWT_2D(nn.Module):
-
     """
-    Input  : (N, C, H, W)
-    Output : LL, LH, HL, HH (each N,C,H/2,W/2)
+    2D Discrete Wavelet Transform (Haar) implemented via depthwise 2D convolution.
+    Completely resolution-agnostic and 100% natively compatible with ONNX dynamic shapes.
     """
-
-    def __init__(self, wavename='haar'):
+    def __init__(self, in_channels=16, wavename='haar'):
         super(DWT_2D, self).__init__()
-        wavelet = pywt.Wavelet(wavename)
-        self.low = wavelet.rec_lo
-        self.high = wavelet.rec_hi
-        self.L = len(self.low)
-        self.half = self.L // 2
-        self._filter_cache = {}
+        inv_sqrt2 = 1.0 / (2.0 ** 0.5)
+        low = torch.tensor([inv_sqrt2, inv_sqrt2], dtype=torch.float32)
+        high = torch.tensor([inv_sqrt2, -inv_sqrt2], dtype=torch.float32)
 
-    def _get_filters(self, H, W, device):
-        key = (H, W, str(device))
-        if key in self._filter_cache:
-            return self._filter_cache[key]
-
-        L = max(H, W)
-        out = math.floor(L / 2)
-
-        # build low filter matrices
-        mat_low = np.zeros((out, L + self.L - 2))
-        index = 0
-        for i in range(out):
-            for j in range(self.L):
-                mat_low[i, index + j] = self.low[j]
-            index += 2
-        mat_low = mat_low[:, (self.half - 1):(-(self.half - 1)) or None]
-
-        # build high filter matrices
-        mat_high = np.zeros((L - out, L + self.L - 2))
-        index = 0
-        for i in range(L - out):
-            for j in range(self.L):
-                mat_high[i, index + j] = self.high[j]
-            index += 2
-        mat_high = mat_high[:, (self.half - 1):(-(self.half - 1)) or None]
-
-        mat_low_h = torch.tensor(mat_low[:math.floor(H / 2), :H], dtype=torch.float32, device=device)
-        mat_low_w = torch.tensor(mat_low[:math.floor(W / 2), :W], dtype=torch.float32, device=device).t()
-
-        mat_high_h = torch.tensor(mat_high[:H - math.floor(H / 2), :H], dtype=torch.float32, device=device)
-        mat_high_w = torch.tensor(mat_high[:W - math.floor(W / 2), :W], dtype=torch.float32, device=device).t()
-
-        self._filter_cache[key] = (mat_low_h, mat_low_w, mat_high_h, mat_high_w)
-        return self._filter_cache[key]
+        # Pre-repeat for in_channels so weight is a CONSTANT buffer of shape (in_channels, 1, 2, 2)
+        self.register_buffer('w_LL', torch.outer(low, low).view(1, 1, 2, 2).repeat(in_channels, 1, 1, 1), persistent=False)
+        self.register_buffer('w_LH', torch.outer(low, high).view(1, 1, 2, 2).repeat(in_channels, 1, 1, 1), persistent=False)
+        self.register_buffer('w_HL', torch.outer(high, low).view(1, 1, 2, 2).repeat(in_channels, 1, 1, 1), persistent=False)
+        self.register_buffer('w_HH', torch.outer(high, high).view(1, 1, 2, 2).repeat(in_channels, 1, 1, 1), persistent=False)
+        self.in_channels = in_channels
 
     def forward(self, x):
-        N, C, H, W = x.size()
-        mat_low_h, mat_low_w, mat_high_h, mat_high_w = self._get_filters(H, W, x.device)
+        LL = F.conv2d(x, self.w_LL, stride=2, groups=self.in_channels)
+        LH = F.conv2d(x, self.w_LH, stride=2, groups=self.in_channels)
+        HL = F.conv2d(x, self.w_HL, stride=2, groups=self.in_channels)
+        HH = F.conv2d(x, self.w_HH, stride=2, groups=self.in_channels)
 
-        LL, LH, HL, HH = DWTFunction_2D.apply(
-            x,
-            mat_low_h, mat_low_w,
-            mat_high_h, mat_high_w
-        )
         return LL, LH, HL, HH
 
 class DWTFunction_2D(Function):
