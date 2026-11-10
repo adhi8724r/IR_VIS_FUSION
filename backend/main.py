@@ -108,6 +108,14 @@ async def fuse_images(
     vis_img = Image.open(io.BytesIO(await vis.read()))
     ir_img = Image.open(io.BytesIO(await ir.read())).convert('L')
 
+    # Cap max dimension to 640px to prevent Out-Of-Memory (OOM 502) on free cloud containers (512MB RAM limit)
+    MAX_DIM = 640
+    w, h = vis_img.size
+    if max(w, h) > MAX_DIM:
+        scale = MAX_DIM / max(w, h)
+        new_w, new_h = int(w * scale), int(h * scale)
+        vis_img = vis_img.resize((new_w, new_h), Image.Resampling.BILINEAR)
+
     vis_np = np.array(vis_img)
     ir_np = np.array(ir_img)
 
@@ -185,22 +193,38 @@ async def fuse_images(
         status_code=200
     )
 
-#Object detection endpoint
-@app.post('/detect',status_code=200)
+# Object detection endpoint
+@app.post('/detect', status_code=200)
 async def yolo_detect(
-    vis : UploadFile = File(...),
-    ir : UploadFile = File(...),
+    vis: UploadFile = File(...),
+    ir: UploadFile = File(...),
     fus: UploadFile = File(...)
 ):
-    inputs = {'vis': vis, 'ir': ir, 'fus': fus}
+    raw_inputs = [
+        ('vis', await vis.read()),
+        ('ir', await ir.read()),
+        ('fus', await fus.read())
+    ]
+
+    keys = []
+    pil_imgs = []
+    MAX_DIM = 640
+
+    for key, data in raw_inputs:
+        img = Image.open(io.BytesIO(data)).convert('RGB')
+        w, h = img.size
+        if max(w, h) > MAX_DIM:
+            scale = MAX_DIM / max(w, h)
+            img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.BILINEAR)
+        keys.append(key)
+        pil_imgs.append(img)
+
+    # Batch prediction with imgsz=416 to guarantee fast execution within Cloudflare 50s timeout
+    predictions = yolo_model.predict(pil_imgs, imgsz=416, device='cpu', verbose=False)
 
     results_b64 = {}
-
-    for key,img_bytes in inputs.items():
-        img = Image.open(io.BytesIO(await img_bytes.read())).convert('RGB')
-
-        res = yolo_model.predict(img)
-        plotted = res[0].plot()
+    for key, res in zip(keys, predictions):
+        plotted = res.plot()
         plotted_rgb = cv2.cvtColor(plotted, cv2.COLOR_BGR2RGB)
         results_b64[key] = img_2_b64(plotted_rgb)
 
