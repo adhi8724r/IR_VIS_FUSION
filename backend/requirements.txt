@@ -4,7 +4,7 @@ pillow
 numpy
 python-multipart
 ultralytics
-torch
-torchvision
-opencv-python
+opencv-python-headless
 PyWavelets
+onnx
+onnxruntime
