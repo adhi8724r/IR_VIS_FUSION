@@ -4,7 +4,7 @@ import { ImageUploader } from "./components/ImageUploader";
 import { ImageModal } from "./components/ImageModal";
 import styles from "./App.module.css";
 
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\/+$/, "");
 
 interface YoloResults {
   vis: string;
@@ -29,6 +29,33 @@ export default function App() {
   const [loadingFuse, setLoadingFuse] = useState(false);
   const [loadingDetect, setLoadingDetect] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [backendStatus, setBackendStatus] = useState<"connected" | "connecting" | "offline">("connecting");
+  const [engineInfo, setEngineInfo] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkBackend = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/`);
+        if (response.ok) {
+          const data = await response.json();
+          if (isMounted) {
+            setBackendStatus("connected");
+            setEngineInfo(data.engine || "Online");
+          }
+        } else {
+          if (isMounted) setBackendStatus("offline");
+        }
+      } catch {
+        if (isMounted) setBackendStatus("offline");
+      }
+    };
+    checkBackend();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Generate previews for inputs
   useEffect(() => {
@@ -99,7 +126,11 @@ export default function App() {
       const blob = await response.blob();
       setFusedBlob(blob);
     } catch (err: any) {
-      setError(err.message || "An error occurred during image fusion.");
+      if (err.message === "Failed to fetch") {
+        setError("Cannot connect to backend server. If hosted on Render free tier, it may take ~30s to wake up from cold sleep. Please wait a moment and try again.");
+      } else {
+        setError(err.message || "An error occurred during image fusion.");
+      }
     } finally {
       setLoadingFuse(false);
     }
@@ -131,7 +162,11 @@ export default function App() {
       const data = (await response.json()) as YoloResults;
       setYoloResults(data);
     } catch (err: any) {
-      setError(err.message || "An error occurred during object detection.");
+      if (err.message === "Failed to fetch") {
+        setError("Cannot connect to backend server. If hosted on Render free tier, it may take ~30s to wake up. Please wait a moment and try again.");
+      } else {
+        setError(err.message || "An error occurred during object detection.");
+      }
     } finally {
       setLoadingDetect(false);
     }
@@ -140,11 +175,31 @@ export default function App() {
   return (
     <div className={styles.appContainer}>
       <header className={styles.header}>
-        <h1 className={styles.headerTitle}>
-          <Cpu size={28} style={{ color: "var(--color-primary)" }} />
-          IR & Visible Image Fusion
-        </h1>
-        <span className={styles.badge}>YOLOv11 Enabled</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <h1 className={styles.headerTitle}>
+            <Cpu size={28} style={{ color: "var(--color-primary)" }} />
+            IR & Visible Image Fusion
+          </h1>
+          <span className={styles.badge}>YOLOv11 Enabled</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          {backendStatus === "connected" ? (
+            <span style={{ fontSize: "0.825rem", color: "#10b981", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#10b981" }} />
+              {engineInfo || "Backend Online"}
+            </span>
+          ) : backendStatus === "connecting" ? (
+            <span style={{ fontSize: "0.825rem", color: "#f59e0b", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#f59e0b" }} />
+              Connecting to Backend...
+            </span>
+          ) : (
+            <span style={{ fontSize: "0.825rem", color: "#ef4444", display: "flex", alignItems: "center", gap: "0.4rem" }} title="Make sure your backend server is running and VITE_API_BASE_URL is set in Vercel">
+              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#ef4444" }} />
+              Backend Offline (Cold Starting?)
+            </span>
+          )}
+        </div>
       </header>
 
       <div className={styles.dashboardLayout}>

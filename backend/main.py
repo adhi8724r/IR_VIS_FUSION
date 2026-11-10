@@ -60,18 +60,25 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Image Fusion and object detection", lifespan=lifespan)
 
-# Configure CORS
-origins = [
-    "http://localhost:5173",  # React-Vite development server
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Configure CORS for local development and Vercel production
+cors_origins_str = os.environ.get("CORS_ORIGINS", "")
+if cors_origins_str:
+    origins = [orig.strip() for orig in cors_origins_str.split(",") if orig.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 def img_2_b64(img_np):
     img_pil = Image.fromarray(img_np)
