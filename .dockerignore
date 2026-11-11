@@ -7,3 +7,6 @@ node_modules
 frontend
 dist
 .env
+backend/yolo11m.pt
+backend/models/FusionModel_Epoch_8.model
+backend/models/FusionModelG_fp32.onnx

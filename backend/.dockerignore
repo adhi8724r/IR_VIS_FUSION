@@ -5,3 +5,6 @@ __pycache__
 *.pyc
 node_modules
 .env
+yolo11m.pt
+models/FusionModel_Epoch_8.model
+models/FusionModelG_fp32.onnx

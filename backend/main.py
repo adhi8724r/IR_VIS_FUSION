@@ -46,18 +46,32 @@ def load_pytorch_model(model_path):
     model.eval()
     return model
 
+def get_yolo_model():
+    global yolo_model
+    if yolo_model is None:
+        print("Lazy-loading YOLOv11 model on demand...")
+        memory_usage("Before loading YOLO")
+        yolo_model_path = os.path.join(BASE_DIR, "yolo11n.pt")
+        yolo_model = ultralytics.YOLO(yolo_model_path)
+        memory_usage("After loading YOLO")
+    return yolo_model
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global fusion_engine, use_onnx, yolo_model
+    global fusion_engine, use_onnx
 
-    memory_usage("Startup - Before loading models")
+    memory_usage("Startup - Init")
 
     if os.path.exists(onnx_model_path):
         print(f"Loading Quantized ONNX Fusion model from: {onnx_model_path}")
+        sess_options = ort.SessionOptions()
+        sess_options.enable_cpu_mem_arena = False
+        sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        sess_options.intra_op_num_threads = 1
+        
+        # Explicit CPUExecutionProvider avoids DRM GPU probe errors on cloud containers
         providers = ['CPUExecutionProvider']
-        if 'CUDAExecutionProvider' in ort.get_available_providers() and torch.cuda.is_available():
-            providers.insert(0, 'CUDAExecutionProvider')
-        fusion_engine = ort.InferenceSession(onnx_model_path, providers=providers)
+        fusion_engine = ort.InferenceSession(onnx_model_path, sess_options=sess_options, providers=providers)
         use_onnx = True
         print(f"ONNX Fusion model successfully loaded with providers: {fusion_engine.get_providers()}")
     else:
@@ -66,12 +80,7 @@ async def lifespan(app: FastAPI):
         use_onnx = False
 
     memory_usage("Startup - After loading fusion model")
-
-    print("yolo model is loading")
-    yolo_model_path = os.path.join(BASE_DIR, "yolo11n.pt")
-    yolo_model = ultralytics.YOLO(yolo_model_path)
-    
-    memory_usage("Startup - After loading YOLO model")
+    print("Backend started successfully! (YOLO will lazy-load on /detect)")
 
     yield
     print("shutting down")
@@ -263,9 +272,11 @@ async def yolo_detect(
 
     memory_usage("After preprocessing (detect)")
 
-    # Batch prediction with imgsz=416 to guarantee fast execution within Cloudflare 50s timeout
+    model = get_yolo_model()
+
+    # Batch prediction with imgsz=320 to guarantee fast execution within Cloudflare 50s timeout and low memory
     with torch.inference_mode():
-        predictions = yolo_model.predict(pil_imgs, imgsz=416, device='cpu', verbose=False)
+        predictions = model.predict(pil_imgs, imgsz=320, device='cpu', verbose=False)
 
     memory_usage("After YOLO")
 
