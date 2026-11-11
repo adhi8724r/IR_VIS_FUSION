@@ -8,3 +8,4 @@ opencv-python-headless
 PyWavelets
 onnx
 onnxruntime
+psutil

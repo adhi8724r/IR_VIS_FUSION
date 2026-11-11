@@ -15,8 +15,20 @@ import time
 from utils import tensor_to_uint8,pad_to_128,unpad
 
 import onnxruntime as ort
+import psutil
+import gc
 
 from contextlib import asynccontextmanager
+
+process = psutil.Process(os.getpid())
+
+def memory_usage(stage: str):
+    ram = process.memory_info().rss / (1024 ** 2)
+    msg = f"[{stage}] RAM: {ram:.2f} MB"
+    if torch.cuda.is_available():
+        gpu = torch.cuda.memory_allocated() / (1024 ** 2)
+        msg += f" | GPU: {gpu:.2f} MB"
+    print(msg)
 
 fusion_engine = None
 use_onnx = False
@@ -38,6 +50,8 @@ def load_pytorch_model(model_path):
 async def lifespan(app: FastAPI):
     global fusion_engine, use_onnx, yolo_model
 
+    memory_usage("Startup - Before loading models")
+
     if os.path.exists(onnx_model_path):
         print(f"Loading Quantized ONNX Fusion model from: {onnx_model_path}")
         providers = ['CPUExecutionProvider']
@@ -51,10 +65,14 @@ async def lifespan(app: FastAPI):
         fusion_engine = load_pytorch_model(pytorch_model_path)
         use_onnx = False
 
+    memory_usage("Startup - After loading fusion model")
+
     print("yolo model is loading")
     yolo_model_path = os.path.join(BASE_DIR, "yolo11n.pt")
     yolo_model = ultralytics.YOLO(yolo_model_path)
     
+    memory_usage("Startup - After loading YOLO model")
+
     yield
     print("shutting down")
 
@@ -94,12 +112,21 @@ def main():
         'model_file': 'FusionModelG_quant.onnx' if use_onnx else 'FusionModelG.model'
     }
 
+@app.get('/memory')
+def get_memory():
+    ram = process.memory_info().rss / (1024 ** 2)
+    data = {"ram_mb": round(ram, 2)}
+    if torch.cuda.is_available():
+        data["gpu_mb"] = round(torch.cuda.memory_allocated() / (1024 ** 2), 2)
+    return data
+
 # Fusion endpoint
 @app.post('/fuse')
 async def fuse_images(
         vis : UploadFile = File(...),
         ir : UploadFile = File(...)
 ):
+    memory_usage("Before preprocessing (fuse)")
     
     # 1. SETUP SAVE LOCATION
     save_dir = os.path.join(BASE_DIR, "fused_results")
@@ -138,6 +165,8 @@ async def fuse_images(
     Y_pad, h0, w0 = pad_to_128(Y)
     ir_pad, _, _  = pad_to_128(ir_np)
 
+    memory_usage("After preprocessing (fuse)")
+
     # Run inference using ONNX Runtime or PyTorch
     if use_onnx:
         vis_in = (Y_pad.astype(np.float32) / 255.0)[np.newaxis, np.newaxis, :, :]
@@ -150,10 +179,12 @@ async def fuse_images(
         vis_t = vis_t.to(device)
         ir_t  = ir_t.to(device)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             fused_t = fusion_engine(vis_t, ir_t)
 
         Y_fused_pad = tensor_to_uint8(fused_t)
+
+    memory_usage("After fusion")
 
     # Remove padding
     Y_fused = unpad(Y_fused_pad,h0,w0) 
@@ -179,16 +210,25 @@ async def fuse_images(
     filename = f"fused_{timestamp}.png"
     save_path = os.path.join(save_dir, filename)
     
-    Image.fromarray(fused_out).save(save_path)
+    out_pil = Image.fromarray(fused_out)
+    out_pil.save(save_path)
     print(f"Saved fused image to: {save_path}")
 
-    # Return image
+    # Prepare response image buffer
     buf = io.BytesIO()
-    Image.fromarray(fused_out).save(buf, format="PNG")
+    out_pil.save(buf, format="PNG")
     buf.seek(0)
+    image_bytes = buf.read()
+
+    memory_usage("After saving (fuse)")
+
+    # Clean temporary buffers
+    del vis_np, ir_np, Y_pad, ir_pad, fused_out, out_pil, buf
+    gc.collect()
+    memory_usage("After GC cleanup (fuse)")
 
     return Response(
-        content=buf.read(),
+        content=image_bytes,
         media_type="image/png",
         status_code=200
     )
@@ -200,6 +240,8 @@ async def yolo_detect(
     ir: UploadFile = File(...),
     fus: UploadFile = File(...)
 ):
+    memory_usage("Before preprocessing (detect)")
+
     raw_inputs = [
         ('vis', await vis.read()),
         ('ir', await ir.read()),
@@ -219,14 +261,26 @@ async def yolo_detect(
         keys.append(key)
         pil_imgs.append(img)
 
+    memory_usage("After preprocessing (detect)")
+
     # Batch prediction with imgsz=416 to guarantee fast execution within Cloudflare 50s timeout
-    predictions = yolo_model.predict(pil_imgs, imgsz=416, device='cpu', verbose=False)
+    with torch.inference_mode():
+        predictions = yolo_model.predict(pil_imgs, imgsz=416, device='cpu', verbose=False)
+
+    memory_usage("After YOLO")
 
     results_b64 = {}
     for key, res in zip(keys, predictions):
         plotted = res.plot()
         plotted_rgb = cv2.cvtColor(plotted, cv2.COLOR_BGR2RGB)
         results_b64[key] = img_2_b64(plotted_rgb)
+
+    memory_usage("After saving/encoding (detect)")
+
+    # Clean temporary prediction & image buffers
+    del raw_inputs, pil_imgs, predictions
+    gc.collect()
+    memory_usage("After GC cleanup (detect)")
 
     return results_b64
 
