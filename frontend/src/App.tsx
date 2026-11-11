@@ -1,5 +1,16 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Eye, RefreshCw, AlertCircle, Cpu, Maximize2 } from "lucide-react";
+import {
+  Sparkles,
+  Eye,
+  RefreshCw,
+  AlertCircle,
+  Cpu,
+  Maximize2,
+  Download,
+  Layers,
+  X,
+  Scan
+} from "lucide-react";
 import { ImageUploader } from "./components/ImageUploader";
 import { ImageModal } from "./components/ImageModal";
 import styles from "./App.module.css";
@@ -57,7 +68,7 @@ export default function App() {
     };
   }, []);
 
-  // Generate previews for inputs
+  // Previews
   useEffect(() => {
     if (!visFile) {
       setVisPreview(null);
@@ -78,7 +89,6 @@ export default function App() {
     return () => URL.revokeObjectURL(url);
   }, [irFile]);
 
-  // Generate preview for fused output
   useEffect(() => {
     if (!fusedBlob) {
       setFusedPreview(null);
@@ -95,7 +105,6 @@ export default function App() {
     } else {
       setIrFile(null);
     }
-    // Clear downstream results if inputs change
     setFusedBlob(null);
     setYoloResults(null);
     setError(null);
@@ -127,7 +136,9 @@ export default function App() {
       setFusedBlob(blob);
     } catch (err: any) {
       if (err.message === "Failed to fetch") {
-        setError("Cannot connect to backend server. If hosted on Render free tier, it may take ~30s to wake up from cold sleep. Please wait a moment and try again.");
+        setError(
+          "Cannot reach backend server. If hosted on Render free tier, it may be waking up from sleep (~30s). Please wait a moment and retry."
+        );
       } else {
         setError(err.message || "An error occurred during image fusion.");
       }
@@ -146,7 +157,6 @@ export default function App() {
     const formData = new FormData();
     formData.append("vis", visFile);
     formData.append("ir", irFile);
-    // Append the fused blob as a file named fused.png
     formData.append("fus", fusedBlob, "fused.png");
 
     try {
@@ -163,7 +173,9 @@ export default function App() {
       setYoloResults(data);
     } catch (err: any) {
       if (err.message === "Failed to fetch") {
-        setError("Cannot connect to backend server. If hosted on Render free tier, it may take ~30s to wake up. Please wait a moment and try again.");
+        setError(
+          "Cannot reach backend server. If hosted on Render free tier, it may be waking up from sleep. Please wait a moment and retry."
+        );
       } else {
         setError(err.message || "An error occurred during object detection.");
       }
@@ -172,70 +184,119 @@ export default function App() {
     }
   };
 
+  const downloadFile = (url: string, filename: string) => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   return (
-    <div className={styles.appContainer}>
-      <header className={styles.header}>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <h1 className={styles.headerTitle}>
-            <Cpu size={28} style={{ color: "var(--color-primary)" }} />
-            IR & Visible Image Fusion
+    <div className={styles.pageWrapper}>
+      {/* Navigation */}
+      <header className={styles.navbar}>
+        <div className={styles.brandGroup}>
+          <div className={styles.brandIcon}>
+            <Cpu size={20} />
+          </div>
+          <h1 className={styles.brandTitle}>
+            IR-VIS Fusion
+            <span className={styles.brandPill}>YOLOv11</span>
           </h1>
-          <span className={styles.badge}>YOLOv11 Enabled</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          {backendStatus === "connected" ? (
-            <span style={{ fontSize: "0.825rem", color: "#10b981", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#10b981" }} />
-              {engineInfo || "Backend Online"}
-            </span>
-          ) : backendStatus === "connecting" ? (
-            <span style={{ fontSize: "0.825rem", color: "#f59e0b", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#f59e0b" }} />
-              Connecting to Backend...
-            </span>
-          ) : (
-            <span style={{ fontSize: "0.825rem", color: "#ef4444", display: "flex", alignItems: "center", gap: "0.4rem" }} title="Make sure your backend server is running and VITE_API_BASE_URL is set in Vercel">
-              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#ef4444" }} />
-              Backend Offline (Cold Starting?)
-            </span>
-          )}
+
+        <div className={styles.statusIndicator}>
+          <span
+            className={`${styles.statusDot} ${
+              backendStatus === "connected"
+                ? styles.dotOnline
+                : backendStatus === "connecting"
+                ? styles.dotConnecting
+                : styles.dotOffline
+            }`}
+          />
+          <span>
+            {backendStatus === "connected"
+              ? engineInfo || "Backend Online"
+              : backendStatus === "connecting"
+              ? "Connecting..."
+              : "Server Sleeping (Wakes in ~30s)"}
+          </span>
         </div>
       </header>
 
-      <div className={styles.dashboardLayout}>
-        {/* Sidebar Controls */}
-        <aside className={styles.sidebar}>
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Input Selection</h2>
-            <div className={styles.uploadGrid}>
-              <ImageUploader
-                label="Visible Image"
-                selectedFile={visFile}
-                previewUrl={visPreview}
-                onFileSelect={setVisFile}
-                onFileClear={() => handleFileClear("vis")}
-              />
-              <ImageUploader
-                label="Infrared (Thermal) Image"
-                selectedFile={irFile}
-                previewUrl={irPreview}
-                onFileSelect={setIrFile}
-                onFileClear={() => handleFileClear("ir")}
-              />
+      {/* Main Flow Container */}
+      <main className={styles.mainContainer}>
+        {/* Error Alert */}
+        {error && (
+          <div className={styles.errorAlert}>
+            <div className={styles.errorText}>
+              <AlertCircle size={18} style={{ flexShrink: 0 }} />
+              <span>{error}</span>
             </div>
-          </section>
+            <button
+              onClick={() => setError(null)}
+              className={styles.errorDismiss}
+              title="Dismiss error"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
 
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Pipeline Actions</h2>
+        {/* 1. SIDE-BY-SIDE TABS FOR VIS AND IR UPLOAD */}
+        <section className={styles.flowSection}>
+          <div className={styles.sectionHeader}>
+            <div className={styles.stepTitleGroup}>
+              <span className={styles.stepBadge}>1</span>
+              <h2 className={styles.stepTitle}>Upload Source Imagery</h2>
+            </div>
+          </div>
+
+          <div className={styles.uploadDualGrid}>
+            <ImageUploader
+              label="Visible (VIS) Channel"
+              badge="RGB Optical"
+              selectedFile={visFile}
+              previewUrl={visPreview}
+              onFileSelect={setVisFile}
+              onFileClear={() => handleFileClear("vis")}
+              onExpand={() =>
+                visPreview &&
+                setZoomedImage({ src: visPreview, title: "Visible (VIS) Channel" })
+              }
+            />
+
+            <ImageUploader
+              label="Infrared (IR) Channel"
+              badge="Thermal Sensor"
+              isIr={true}
+              selectedFile={irFile}
+              previewUrl={irPreview}
+              onFileSelect={setIrFile}
+              onFileClear={() => handleFileClear("ir")}
+              onExpand={() =>
+                irPreview &&
+                setZoomedImage({ src: irPreview, title: "Infrared (IR) Channel" })
+              }
+            />
+          </div>
+        </section>
+
+        {/* 2. FUSED IMAGE AT MIDDLE AND BELOW THE TABS */}
+        <section className={styles.flowSection}>
+          <div className={styles.centerActionArea}>
             <button
               onClick={handleFuse}
               disabled={!visFile || !irFile || loadingFuse || loadingDetect}
-              className={`${styles.actionButton} ${styles.buttonPrimary}`}
+              className={styles.primaryActionButton}
             >
               {loadingFuse ? (
                 <>
                   <RefreshCw size={18} className={styles.spinner} />
-                  Fusing Images...
+                  Fusing Imagery...
                 </>
               ) : (
                 <>
@@ -245,243 +306,350 @@ export default function App() {
               )}
             </button>
 
+            {/* Centered Fused Image Display Card */}
+            <div className={styles.fusedDisplayCard}>
+              <div className={styles.cardHeader}>
+                <h3 className={styles.cardTitle}>
+                  <Layers size={16} style={{ color: "var(--color-primary)" }} />
+                  Fused Output
+                </h3>
+                {fusedPreview && (
+                  <div className={styles.cardActions}>
+                    <span className={styles.tagPill}>Haar DWT • INT8</span>
+                    <button
+                      onClick={() =>
+                        setZoomedImage({
+                          src: fusedPreview,
+                          title: "Fused Output (IR + VIS)",
+                        })
+                      }
+                      className={styles.actionIconBtn}
+                      title="Expand Full Screen"
+                    >
+                      <Maximize2 size={13} />
+                      <span>Expand</span>
+                    </button>
+                    <button
+                      onClick={() => downloadFile(fusedPreview, "fused_output.png")}
+                      className={styles.actionIconBtn}
+                      title="Download Image"
+                    >
+                      <Download size={13} />
+                      <span>Download</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div
+                className={styles.imageFrameArea}
+                onClick={() =>
+                  fusedPreview &&
+                  setZoomedImage({
+                    src: fusedPreview,
+                    title: "Fused Output (IR + VIS)",
+                  })
+                }
+              >
+                {loadingFuse ? (
+                  <div className={styles.emptyStatePlaceholder}>
+                    <RefreshCw size={28} className={styles.spinner} />
+                    <p className={styles.emptyTitle}>Synthesizing Multimodal Fusion...</p>
+                    <p className={styles.emptySubtext}>
+                      Performing 2D Haar DWT wavelet decomposition & deep feature fusion
+                    </p>
+                  </div>
+                ) : fusedPreview ? (
+                  <>
+                    <img
+                      src={fusedPreview}
+                      alt="Fused Output"
+                      className={styles.mainDisplayImg}
+                    />
+                    <div className={styles.expandPromptOverlay}>
+                      <span className={styles.expandBadge}>
+                        <Maximize2 size={14} />
+                        Click to Expand
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className={styles.emptyStatePlaceholder}>
+                    <div className={styles.emptyIconWrap}>
+                      <Layers size={24} />
+                    </div>
+                    <p className={styles.emptyTitle}>Awaiting Image Fusion</p>
+                    <p className={styles.emptySubtext}>
+                      Upload both VIS and IR images above and click "Fuse Images"
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 3. BUTTON FOR OBJECT DETECTION AND 3 IMAGES DISPLAY */}
+        <section className={styles.flowSection}>
+          <div className={styles.centerActionArea}>
             <button
               onClick={handleDetect}
               disabled={!fusedBlob || loadingFuse || loadingDetect}
-              className={`${styles.actionButton} ${styles.buttonAccent}`}
+              className={styles.accentActionButton}
             >
               {loadingDetect ? (
                 <>
                   <RefreshCw size={18} className={styles.spinner} />
-                  Running YOLO...
+                  Running YOLOv11 Detection...
                 </>
               ) : (
                 <>
-                  <Eye size={18} />
-                  Run YOLO Detection
+                  <Scan size={18} />
+                  Run Object Detection
                 </>
               )}
             </button>
-          </section>
 
-          {error && (
-            <div className={styles.errorBanner}>
-              <AlertCircle size={18} style={{ flexShrink: 0 }} />
-              <span>{error}</span>
-            </div>
-          )}
-        </aside>
-
-        {/* Main Content Panels */}
-        <main className={styles.mainContent}>
-          {/* Previews and Fused Results Grid */}
-          <div className={styles.section}>
-            <h2 className={styles.sectionTitle}>Image Pipeline Previews</h2>
-            <div className={styles.imageGrid}>
-              {/* Visible Input Card */}
-              <div className={styles.card}>
+            {/* 3 Images Side-by-Side Display */}
+            <div className={styles.yoloThreeGrid}>
+              {/* 1. Visible Detections */}
+              <div className={styles.detectionCard}>
                 <div className={styles.cardHeader}>
-                  <h4 className={styles.cardTitle}>Visible Channel</h4>
-                </div>
-                <div className={styles.imageContainer}>
-                  {visPreview ? (
-                    <>
-                      <img
-                        src={visPreview}
-                        alt="Visible Source"
-                        className={styles.displayImage}
-                      />
+                  <h4 className={styles.cardTitle}>
+                    <Eye size={15} />
+                    VIS Detection
+                  </h4>
+                  {yoloResults?.vis && (
+                    <div className={styles.cardActions}>
+                      <span className={`${styles.tagPill} ${styles.tagVis}`}>VIS</span>
                       <button
-                        className={styles.zoomButton}
-                        onClick={() => setZoomedImage({ src: visPreview, title: "Visible Channel" })}
-                        title="Zoom Image"
+                        onClick={() =>
+                          setZoomedImage({
+                            src: `data:image/png;base64,${yoloResults.vis}`,
+                            title: "Visible Detections (YOLOv11)",
+                          })
+                        }
+                        className={styles.actionIconBtn}
+                        title="Expand"
                       >
-                        <Maximize2 size={16} />
+                        <Maximize2 size={13} />
                       </button>
-                    </>
-                  ) : (
-                    <span className={styles.placeholderText}>
-                      Upload a visible image to preview
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* IR Input Card */}
-              <div className={styles.card}>
-                <div className={styles.cardHeader}>
-                  <h4 className={styles.cardTitle}>Infrared Channel</h4>
-                </div>
-                <div className={styles.imageContainer}>
-                  {irPreview ? (
-                    <>
-                      <img
-                        src={irPreview}
-                        alt="Infrared Source"
-                        className={styles.displayImage}
-                      />
                       <button
-                        className={styles.zoomButton}
-                        onClick={() => setZoomedImage({ src: irPreview, title: "Infrared Channel" })}
-                        title="Zoom Image"
+                        onClick={() =>
+                          downloadFile(
+                            `data:image/png;base64,${yoloResults.vis}`,
+                            "vis_detections.png"
+                          )
+                        }
+                        className={styles.actionIconBtn}
+                        title="Download"
                       >
-                        <Maximize2 size={16} />
+                        <Download size={13} />
                       </button>
-                    </>
-                  ) : (
-                    <span className={styles.placeholderText}>
-                      Upload an infrared image to preview
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Fused Output Card */}
-              <div className={styles.card}>
-                <div className={styles.cardHeader}>
-                  <h4 className={styles.cardTitle}>Fused Output</h4>
-                </div>
-                <div className={styles.imageContainer}>
-                  {loadingFuse ? (
-                    <div className={styles.placeholderText}>
-                      <RefreshCw size={24} className={styles.spinner} />
-                      <p style={{ marginTop: "0.5rem" }}>Generating fused output...</p>
                     </div>
-                  ) : fusedPreview ? (
-                    <>
-                      <img
-                        src={fusedPreview}
-                        alt="Fused Output"
-                        className={styles.displayImage}
-                      />
-                      <button
-                        className={styles.zoomButton}
-                        onClick={() => setZoomedImage({ src: fusedPreview, title: "Fused Output" })}
-                        title="Zoom Image"
-                      >
-                        <Maximize2 size={16} />
-                      </button>
-                    </>
-                  ) : (
-                    <span className={styles.placeholderText}>
-                      Perform fusion to view output
-                    </span>
                   )}
                 </div>
-              </div>
-            </div>
-          </div>
 
-          {/* YOLO Detections Section */}
-          <div className={styles.section}>
-            <h2 className={styles.sectionTitle}>YOLO Detection Results</h2>
-            <div className={styles.yoloGrid}>
-              {/* YOLO Visible */}
-              <div className={styles.card}>
-                <div className={styles.cardHeader}>
-                  <h4 className={styles.cardTitle}>Visible Detections</h4>
-                </div>
-                <div className={styles.imageContainer}>
+                <div
+                  className={styles.detectionFrameArea}
+                  onClick={() =>
+                    yoloResults?.vis &&
+                    setZoomedImage({
+                      src: `data:image/png;base64,${yoloResults.vis}`,
+                      title: "Visible Detections (YOLOv11)",
+                    })
+                  }
+                >
                   {loadingDetect ? (
-                    <div className={styles.placeholderText}>
+                    <div className={styles.emptyStatePlaceholder}>
                       <RefreshCw size={24} className={styles.spinner} />
-                      <p style={{ marginTop: "0.5rem" }}>Running object detection...</p>
+                      <p className={styles.emptyTitle}>Detecting objects...</p>
                     </div>
                   ) : yoloResults?.vis ? (
                     <>
                       <img
                         src={`data:image/png;base64,${yoloResults.vis}`}
                         alt="Visible Detections"
-                        className={styles.displayImage}
+                        className={styles.detectionImg}
                       />
-                      <button
-                        className={styles.zoomButton}
-                        onClick={() => setZoomedImage({ src: `data:image/png;base64,${yoloResults.vis}`, title: "Visible Detections" })}
-                        title="Zoom Image"
-                      >
-                        <Maximize2 size={16} />
-                      </button>
+                      <div className={styles.expandPromptOverlay}>
+                        <span className={styles.expandBadge}>
+                          <Maximize2 size={13} />
+                          Expand
+                        </span>
+                      </div>
                     </>
                   ) : (
-                    <span className={styles.placeholderText}>
-                      Run detection to display YOLO boxes
-                    </span>
+                    <div className={styles.emptyStatePlaceholder}>
+                      <Scan size={22} />
+                      <p className={styles.emptySubtext}>Awaiting detection run</p>
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* YOLO IR */}
-              <div className={styles.card}>
+              {/* 2. Infrared Detections */}
+              <div className={styles.detectionCard}>
                 <div className={styles.cardHeader}>
-                  <h4 className={styles.cardTitle}>Infrared Detections</h4>
+                  <h4 className={styles.cardTitle}>
+                    <Eye size={15} />
+                    IR Detection
+                  </h4>
+                  {yoloResults?.ir && (
+                    <div className={styles.cardActions}>
+                      <span className={`${styles.tagPill} ${styles.tagIr}`}>IR</span>
+                      <button
+                        onClick={() =>
+                          setZoomedImage({
+                            src: `data:image/png;base64,${yoloResults.ir}`,
+                            title: "Infrared Detections (YOLOv11)",
+                          })
+                        }
+                        className={styles.actionIconBtn}
+                        title="Expand"
+                      >
+                        <Maximize2 size={13} />
+                      </button>
+                      <button
+                        onClick={() =>
+                          downloadFile(
+                            `data:image/png;base64,${yoloResults.ir}`,
+                            "ir_detections.png"
+                          )
+                        }
+                        className={styles.actionIconBtn}
+                        title="Download"
+                      >
+                        <Download size={13} />
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className={styles.imageContainer}>
+
+                <div
+                  className={styles.detectionFrameArea}
+                  onClick={() =>
+                    yoloResults?.ir &&
+                    setZoomedImage({
+                      src: `data:image/png;base64,${yoloResults.ir}`,
+                      title: "Infrared Detections (YOLOv11)",
+                    })
+                  }
+                >
                   {loadingDetect ? (
-                    <div className={styles.placeholderText}>
+                    <div className={styles.emptyStatePlaceholder}>
                       <RefreshCw size={24} className={styles.spinner} />
-                      <p style={{ marginTop: "0.5rem" }}>Running object detection...</p>
+                      <p className={styles.emptyTitle}>Detecting objects...</p>
                     </div>
                   ) : yoloResults?.ir ? (
                     <>
                       <img
                         src={`data:image/png;base64,${yoloResults.ir}`}
                         alt="Infrared Detections"
-                        className={styles.displayImage}
+                        className={styles.detectionImg}
                       />
-                      <button
-                        className={styles.zoomButton}
-                        onClick={() => setZoomedImage({ src: `data:image/png;base64,${yoloResults.ir}`, title: "Infrared Detections" })}
-                        title="Zoom Image"
-                      >
-                        <Maximize2 size={16} />
-                      </button>
+                      <div className={styles.expandPromptOverlay}>
+                        <span className={styles.expandBadge}>
+                          <Maximize2 size={13} />
+                          Expand
+                        </span>
+                      </div>
                     </>
                   ) : (
-                    <span className={styles.placeholderText}>
-                      Run detection to display YOLO boxes
-                    </span>
+                    <div className={styles.emptyStatePlaceholder}>
+                      <Scan size={22} />
+                      <p className={styles.emptySubtext}>Awaiting detection run</p>
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* YOLO Fused */}
-              <div className={styles.card}>
+              {/* 3. Fused Detections */}
+              <div className={styles.detectionCard}>
                 <div className={styles.cardHeader}>
-                  <h4 className={styles.cardTitle}>Fused Detections</h4>
+                  <h4 className={styles.cardTitle}>
+                    <Eye size={15} />
+                    Fused Detection
+                  </h4>
+                  {yoloResults?.fus && (
+                    <div className={styles.cardActions}>
+                      <span className={`${styles.tagPill} ${styles.tagFused}`}>FUSED</span>
+                      <button
+                        onClick={() =>
+                          setZoomedImage({
+                            src: `data:image/png;base64,${yoloResults.fus}`,
+                            title: "Fused Detections (YOLOv11)",
+                          })
+                        }
+                        className={styles.actionIconBtn}
+                        title="Expand"
+                      >
+                        <Maximize2 size={13} />
+                      </button>
+                      <button
+                        onClick={() =>
+                          downloadFile(
+                            `data:image/png;base64,${yoloResults.fus}`,
+                            "fused_detections.png"
+                          )
+                        }
+                        className={styles.actionIconBtn}
+                        title="Download"
+                      >
+                        <Download size={13} />
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className={styles.imageContainer}>
+
+                <div
+                  className={styles.detectionFrameArea}
+                  onClick={() =>
+                    yoloResults?.fus &&
+                    setZoomedImage({
+                      src: `data:image/png;base64,${yoloResults.fus}`,
+                      title: "Fused Detections (YOLOv11)",
+                    })
+                  }
+                >
                   {loadingDetect ? (
-                    <div className={styles.placeholderText}>
+                    <div className={styles.emptyStatePlaceholder}>
                       <RefreshCw size={24} className={styles.spinner} />
-                      <p style={{ marginTop: "0.5rem" }}>Running object detection...</p>
+                      <p className={styles.emptyTitle}>Detecting objects...</p>
                     </div>
                   ) : yoloResults?.fus ? (
                     <>
                       <img
                         src={`data:image/png;base64,${yoloResults.fus}`}
                         alt="Fused Detections"
-                        className={styles.displayImage}
+                        className={styles.detectionImg}
                       />
-                      <button
-                        className={styles.zoomButton}
-                        onClick={() => setZoomedImage({ src: `data:image/png;base64,${yoloResults.fus}`, title: "Fused Detections" })}
-                        title="Zoom Image"
-                      >
-                        <Maximize2 size={16} />
-                      </button>
+                      <div className={styles.expandPromptOverlay}>
+                        <span className={styles.expandBadge}>
+                          <Maximize2 size={13} />
+                          Expand
+                        </span>
+                      </div>
                     </>
                   ) : (
-                    <span className={styles.placeholderText}>
-                      Run detection to display YOLO boxes
-                    </span>
+                    <div className={styles.emptyStatePlaceholder}>
+                      <Scan size={22} />
+                      <p className={styles.emptySubtext}>Awaiting detection run</p>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
           </div>
-        </main>
-      </div>
+        </section>
+      </main>
 
+      {/* Footer */}
+      <footer className={styles.footer}>
+        <span>IR & Visible Dual-Modal Wavelet Fusion System • INT8 Accelerated</span>
+      </footer>
+
+      {/* Full-Screen Zoom Lightbox Modal */}
       {zoomedImage && (
         <ImageModal
           src={zoomedImage.src}

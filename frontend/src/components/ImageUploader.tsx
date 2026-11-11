@@ -1,22 +1,28 @@
 import React, { useState, useRef } from "react";
-import { Upload, X, FileImage } from "lucide-react";
+import { Upload, X, Maximize2, FileImage } from "lucide-react";
 import styles from "./ImageUploader.module.css";
 
 interface ImageUploaderProps {
   label: string;
+  badge?: string;
+  isIr?: boolean;
   selectedFile: File | null;
   previewUrl: string | null;
   onFileSelect: (file: File) => void;
   onFileClear: () => void;
+  onExpand?: () => void;
   accept?: string;
 }
 
 export const ImageUploader: React.FC<ImageUploaderProps> = ({
   label,
+  badge,
+  isIr = false,
   selectedFile,
   previewUrl,
   onFileSelect,
   onFileClear,
+  onExpand,
   accept = "image/*",
 }) => {
   const [isDragActive, setIsDragActive] = useState(false);
@@ -58,48 +64,94 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   return (
     <div className={styles.container}>
-      <h3 className={styles.title}>{label}</h3>
+      <div className={styles.tabHeader}>
+        <div className={styles.titleArea}>
+          <span className={styles.tabTitle}>{label}</span>
+          {badge && (
+            <span className={`${styles.tabBadge} ${isIr ? styles.tabBadgeIr : ""}`}>
+              {badge}
+            </span>
+          )}
+        </div>
+      </div>
 
-      {selectedFile && previewUrl ? (
-        <div className={styles.previewContainer}>
-          <img src={previewUrl} alt={label} className={styles.previewImage} />
-          <div className={styles.fileDetails}>
-            <div className={styles.fileInfo}>
-              <FileImage size={16} className={styles.fileIcon} />
-              <span className={styles.fileName}>{selectedFile.name}</span>
-            </div>
-            <button
-              onClick={onFileClear}
-              className={styles.clearButton}
-              title="Remove image"
+      <div className={styles.bodyArea}>
+        {selectedFile && previewUrl ? (
+          <div className={styles.previewCard}>
+            <div
+              className={styles.imageFrame}
+              onClick={onExpand}
+              title="Click to view full screen"
             >
-              <X size={16} />
-            </button>
+              <img src={previewUrl} alt={label} className={styles.previewImg} />
+              <div className={styles.frameOverlay}>
+                <span className={styles.overlayText}>
+                  <Maximize2 size={13} />
+                  Expand
+                </span>
+              </div>
+            </div>
+
+            <div className={styles.footerBar}>
+              <div className={styles.metaInfo} title={selectedFile.name}>
+                <FileImage size={14} className={styles.metaIcon} />
+                <span>{selectedFile.name}</span>
+              </div>
+
+              <div className={styles.controlButtons}>
+                {onExpand && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onExpand();
+                    }}
+                    className={styles.iconBtn}
+                    title="Expand Image"
+                  >
+                    <Maximize2 size={14} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFileClear();
+                  }}
+                  className={`${styles.iconBtn} ${styles.clearBtn}`}
+                  title="Remove Image"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div
-          className={`${styles.dropzone} ${isDragActive ? styles.dragActive : ""}`}
-          onDragEnter={handleDrag}
-          onDragOver={handleDrag}
-          onDragLeave={handleDrag}
-          onDrop={handleDrop}
-          onClick={onButtonClick}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            className={styles.hiddenInput}
-            accept={accept}
-            onChange={handleChange}
-          />
-          <div className={styles.uploadPrompt}>
-            <Upload size={32} className={styles.uploadIcon} />
-            <p className={styles.primaryPrompt}>Click to upload or drag & drop</p>
-            <p className={styles.secondaryPrompt}>Supports PNG, JPG, JPEG, BMP</p>
+        ) : (
+          <div
+            className={`${styles.dropzone} ${isDragActive ? styles.dragActive : ""}`}
+            onDragEnter={handleDrag}
+            onDragOver={handleDrag}
+            onDragLeave={handleDrag}
+            onDrop={handleDrop}
+            onClick={onButtonClick}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              className={styles.hiddenInput}
+              accept={accept}
+              onChange={handleChange}
+            />
+            <div className={styles.uploadPrompt}>
+              <div className={styles.uploadIconWrap}>
+                <Upload size={20} />
+              </div>
+              <p className={styles.primaryPrompt}>Click to upload or drag & drop</p>
+              <p className={styles.secondaryPrompt}>PNG, JPG, JPEG, BMP</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

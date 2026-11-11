@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from "react";
-import { X } from "lucide-react";
+import { X, Download } from "lucide-react";
 import styles from "./ImageModal.module.css";
 
 interface ImageModalProps {
@@ -9,7 +9,6 @@ interface ImageModalProps {
 }
 
 export const ImageModal: React.FC<ImageModalProps> = ({ src, title, onClose }) => {
-  // Handle escape key
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -21,7 +20,6 @@ export const ImageModal: React.FC<ImageModalProps> = ({ src, title, onClose }) =
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
-    // Prevent background scrolling while modal is open
     document.body.style.overflow = "hidden";
 
     return () => {
@@ -30,24 +28,38 @@ export const ImageModal: React.FC<ImageModalProps> = ({ src, title, onClose }) =
     };
   }, [handleKeyDown]);
 
-  // Handle click on backdrop only
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
   };
 
+  const handleDownload = () => {
+    const link = document.createElement("a");
+    link.href = src;
+    link.download = `${title.toLowerCase().replace(/[^a-z0-9]/g, "_")}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className={styles.backdrop} onClick={handleBackdropClick}>
       <div className={styles.modalContent}>
-        <button className={styles.closeButton} onClick={onClose} aria-label="Close modal">
-          <X size={24} />
-        </button>
+        <div className={styles.topBar}>
+          <span className={styles.titleText}>{title}</span>
+          <div className={styles.actions}>
+            <button className={styles.actionButton} onClick={handleDownload} title="Download image">
+              <Download size={15} />
+              <span>Download</span>
+            </button>
+            <button className={styles.closeButton} onClick={onClose} aria-label="Close modal">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
         <div className={styles.imageWrapper}>
           <img src={src} alt={title} className={styles.zoomedImage} />
-        </div>
-        <div className={styles.titleBanner}>
-          <span className={styles.titleText}>{title}</span>
         </div>
       </div>
     </div>

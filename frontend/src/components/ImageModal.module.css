@@ -1,94 +1,123 @@
 .backdrop {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(9, 13, 22, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  inset: 0;
+  background-color: rgba(5, 8, 15, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  animation: fadeIn 0.2s ease-out;
+  z-index: 9999;
+  padding: 1.5rem;
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .modalContent {
   position: relative;
   display: flex;
   flex-direction: column;
+  max-width: 92vw;
+  max-height: 90vh;
+  background-color: #0d1322;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.topBar {
+  display: flex;
   align-items: center;
-  max-width: 90vw;
-  max-height: 85vh;
-  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem;
+  background-color: #11192e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.titleText {
+  color: #f8fafc;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.actionButton {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  font-size: 0.825rem;
+  font-weight: 500;
+  padding: 0.4rem 0.85rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.actionButton:hover {
+  background-color: #6366f1;
+  border-color: #6366f1;
+  color: #ffffff;
 }
 
 .closeButton {
-  position: absolute;
-  top: -3rem;
-  right: 0;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
   cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  border-radius: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease;
 }
 
 .closeButton:hover {
   background-color: rgba(244, 63, 94, 0.2);
   border-color: rgba(244, 63, 94, 0.4);
   color: #f43f5e;
-  transform: rotate(90deg);
 }
 
 .imageWrapper {
-  background-color: #020617;
-  border: 1px solid #334155;
-  border-radius: 0.75rem;
-  overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  background-color: #070a13;
+  padding: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  max-width: 100%;
+  overflow: hidden;
 }
 
 .zoomedImage {
-  max-width: 90vw;
+  max-width: 88vw;
   max-height: 75vh;
   object-fit: contain;
+  border-radius: 0.5rem;
   display: block;
 }
 
-.titleBanner {
-  background-color: rgba(15, 23, 42, 0.8);
-  border: 1px solid #334155;
-  border-radius: 9999px;
-  padding: 0.5rem 1.25rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-}
-
-.titleText {
-  color: #f8fafc;
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0.025em;
-  text-transform: capitalize;
-}
-
 @keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
   from {
     opacity: 0;
+    transform: scale(0.96);
   }
   to {
     opacity: 1;
+    transform: scale(1);
   }
 }

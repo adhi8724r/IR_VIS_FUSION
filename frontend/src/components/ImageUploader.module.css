@@ -1,17 +1,65 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
   width: 100%;
+  background-color: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.875rem;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.title {
-  font-size: 0.9rem;
+.container:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.tabHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: #131d35;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tabTitle {
+  font-size: 0.875rem;
   font-weight: 600;
-  color: var(--text-secondary, #94a3b8);
-  margin: 0;
+  color: #f1f5f9;
+  letter-spacing: 0.02em;
+}
+
+.tabBadge {
+  font-size: 0.7rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  background-color: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+.tabBadgeIr {
+  background-color: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border-color: rgba(244, 63, 94, 0.25);
+}
+
+.bodyArea {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
 }
 
 .dropzone {
@@ -19,25 +67,26 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 180px;
-  border: 2px dashed var(--border-color, #334155);
-  border-radius: 0.75rem;
-  background-color: var(--bg-card-light, #1e293b);
+  width: 100%;
+  height: 200px;
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 0.625rem;
+  background-color: rgba(15, 23, 42, 0.5);
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  padding: 1rem;
+  transition: all 0.2s ease;
+  padding: 1.25rem;
   text-align: center;
 }
 
 .dropzone:hover {
-  border-color: var(--color-primary, #6366f1);
-  background-color: rgba(99, 102, 241, 0.05);
+  border-color: #6366f1;
+  background-color: rgba(99, 102, 241, 0.04);
 }
 
 .dragActive {
-  border-color: var(--color-primary, #6366f1);
-  background-color: rgba(99, 102, 241, 0.1);
-  transform: scale(0.98);
+  border-color: #6366f1;
+  background-color: rgba(99, 102, 241, 0.08);
+  transform: scale(0.99);
 }
 
 .hiddenInput {
@@ -52,90 +101,151 @@
   pointer-events: none;
 }
 
-.uploadIcon {
-  color: var(--text-muted, #64748b);
-  transition: color 0.2s ease;
+.uploadIconWrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  transition: all 0.2s ease;
+  margin-bottom: 0.25rem;
 }
 
-.dropzone:hover .uploadIcon {
-  color: var(--color-primary, #6366f1);
+.dropzone:hover .uploadIconWrap {
+  background-color: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #818cf8;
 }
 
 .primaryPrompt {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: var(--text-primary, #f8fafc);
+  color: #e2e8f0;
   margin: 0;
 }
 
 .secondaryPrompt {
   font-size: 0.75rem;
-  color: var(--text-muted, #64748b);
+  color: #64748b;
   margin: 0;
 }
 
-.previewContainer {
+.previewCard {
+  width: 100%;
   position: relative;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border-color, #334155);
-  border-radius: 0.75rem;
-  background-color: var(--bg-card-light, #1e293b);
-  overflow: hidden;
-  height: 180px;
+  gap: 0.75rem;
 }
 
-.previewImage {
+.imageFrame {
+  position: relative;
   width: 100%;
-  height: 140px;
-  object-fit: contain;
-  background-color: #0f172a;
-}
-
-.fileDetails {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0.75rem;
-  background-color: var(--bg-card, #0f172a);
-  border-top: 1px solid var(--border-color, #334155);
-  height: 40px;
-}
-
-.fileInfo {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.fileIcon {
-  color: var(--color-primary, #6366f1);
-  flex-shrink: 0;
-}
-
-.fileName {
-  font-size: 0.8rem;
-  color: var(--text-primary, #f8fafc);
-  white-space: nowrap;
+  height: 200px;
+  background-color: #080c16;
+  border-radius: 0.5rem;
   overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.clearButton {
-  background: none;
-  border: none;
-  color: var(--text-muted, #64748b);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  cursor: pointer;
 }
 
-.clearButton:hover {
-  color: var(--color-error, #f43f5e);
-  background-color: rgba(244, 63, 94, 0.1);
+.previewImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.25s ease;
+}
+
+.imageFrame:hover .previewImg {
+  transform: scale(1.02);
+}
+
+.frameOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.imageFrame:hover .frameOverlay {
+  opacity: 1;
+}
+
+.overlayText {
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.footerBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.25rem 0 0.25rem;
+}
+
+.metaInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  max-width: 65%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metaIcon {
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.controlButtons {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.iconBtn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  padding: 0.35rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.iconBtn:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.clearBtn:hover {
+  background-color: rgba(244, 63, 94, 0.18);
+  border-color: rgba(244, 63, 94, 0.3);
+  color: #fb7185;
 }
